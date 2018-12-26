@@ -29,7 +29,6 @@ namespace ARNativePortal
             if (configuration == null)
             {
                 //Print message...
-                messageLabel.Hidden = false;
                 messageLabel.Text = "AR World Configuration is not supported by this device. Should be iPhone 6S as minimum.";
                 return;
             }
@@ -51,14 +50,11 @@ namespace ARNativePortal
 
         private void DidChangeTrackingState(ARTrackingState state)
         {
-            statusLabel.Hidden = false;
-            statusLabel.Text = state.ToString();
+            statusLabel.Text = "Tracking Status: " + state.ToString();
             if (state == ARTrackingState.Limited) {
-                messageLabel.Hidden = false;
                 messageLabel.Text = "Move around slowly to normalize tracking state";
             }
             else if (state == ARTrackingState.Normal) {
-                messageLabel.Hidden = false;
                 messageLabel.Text = string.Empty;
             }
             Debug.WriteLine("Status Frame {0} View Frame {1}", statusLabel.Frame, View.Frame);
