@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="BYZ-38-t0r">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="tne-QT-ifu">
+            <objects>
+                <viewController id="BYZ-38-t0r" customClass="ViewController" sceneMemberID="viewController">
+                    <layoutGuides>
+                        <viewControllerLayoutGuide type="top" id="y3c-jy-aDJ"/>
+                        <viewControllerLayoutGuide type="bottom" id="wfy-db-euE"/>
+                    </layoutGuides>
+                    <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="736"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <arscnView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="199">
+                                <rect key="frame" x="0.0" y="0.0" width="414" height="736"/>
+                                <color key="backgroundColor" colorSpace="calibratedWhite" white="0" alpha="0"/>
+                            </arscnView>
+                            <label hidden="YES" opaque="NO" userInteractionEnabled="NO" contentMode="left" misplaced="YES" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="208" verticalHuggingPriority="251">
+                                <rect key="frame" x="38" y="60" width="42" height="20"/>
+                                <fontDescription key="fontDescription" name="TimesNewRomanPSMT" family="Times New Roman" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label hidden="YES" opaque="NO" userInteractionEnabled="NO" contentMode="left" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="4244" verticalHuggingPriority="251" misplaced="YES">
+                                <rect key="frame" x="20" y="667" width="42" height="20"/>
+                                <fontDescription key="fontDescription" name="TimesNewRomanPSMT" family="Times New Roman" pointSize="17"/>
+                                <color key="textColor" colorSpace="calibratedWhite" white="0" alpha="1"/>
+                                <nil key="highlightedColor"/>
+                                <accessibility key="accessibilityConfiguration">
+                                    <accessibilityTraits key="traits" staticText="YES" notEnabled="YES"/>
+                                </accessibility>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="208" firstAttribute="leading" secondItem="199" secondAttribute="leading" constant="20" id="215"/>
+                            <constraint firstItem="208" firstAttribute="top" secondItem="y3c-jy-aDJ" secondAttribute="bottom" constant="40" id="218"/>
+                            <constraint firstItem="199" firstAttribute="trailing" secondItem="208" secondAttribute="trailing" constant="20" id="221"/>
+                            <constraint id="1946" firstItem="199" firstAttribute="trailing" secondItem="8bC-Xf-vdC" secondAttribute="trailing"/>
+                            <constraint id="1949" firstItem="199" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading"/>
+                            <constraint id="1952" firstItem="199" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top"/>
+                            <constraint id="1955" firstItem="199" firstAttribute="bottom" secondItem="8bC-Xf-vdC" secondAttribute="bottom"/>
+                            <constraint id="4274" firstItem="4244" firstAttribute="leading" secondItem="199" secondAttribute="leading" constant="20"/>
+                            <constraint id="4277" firstItem="199" firstAttribute="bottom" secondItem="4244" secondAttribute="bottom" constant="80"/>
+                            <constraint id="4280" firstItem="199" firstAttribute="trailing" secondItem="4244" secondAttribute="trailing" constant="20"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="arSceneView" destination="199" id="name-outlet-199"/>
+                        <outlet property="messageLabel" destination="208" id="name-outlet-208"/>
+                        <outlet property="statusLabel" destination="4244" id="name-outlet-4244"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="0.0" y="0.0"/>
+        </scene>
+    </scenes>
+</document>
