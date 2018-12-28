@@ -63,7 +63,7 @@
     <DefineConstants>DEBUG;ENABLE_TEST_CLOUD;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <CodesignKey>iPhone Developer</CodesignKey>
+    <CodesignKey>iPhone Developer: Siarhei Yakushevich (2846RQ3DJV)</CodesignKey>
     <DeviceSpecificBuild>true</DeviceSpecificBuild>
     <MtouchDebug>true</MtouchDebug>
     <MtouchNoSymbolStrip>true</MtouchNoSymbolStrip>
@@ -92,6 +92,7 @@
   <ItemGroup>
     <Folder Include="Resources\" />
     <Folder Include="Models\" />
+    <Folder Include="Extensions\" />
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="LaunchScreen.storyboard" />
@@ -111,6 +112,8 @@
     </Compile>
     <Compile Include="Models\ARSessionHandler.cs" />
     <Compile Include="Helpers\DebugHelper.cs" />
+    <Compile Include="Models\ARSceneVIewHandler.cs" />
+    <Compile Include="Extensions\SCNOpenTKTransformations.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.CSharp.targets" />
 </Project>

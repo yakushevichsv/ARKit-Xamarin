@@ -10,9 +10,10 @@ namespace ARNativePortal
 {
     public partial class ViewController : UIViewController
     {
-        private ARSession aRSession => arSceneView.Session;
-        private ARSessionHandler arSessionHandler = new ARSessionHandler();
-        private DispatchQueue arQueue = new DispatchQueue("AR.Session.Queue", false);
+        private ARSession arSession => arSceneView.Session;
+        private readonly ARSessionDelegate arSessionHandler = new ARSessionHandler();
+        private readonly ARSCNViewDelegate arSceneHandler = new ARSceneViewHandler();
+        private readonly DispatchQueue arQueue = new DispatchQueue("AR.Session.Queue", false);
 
         protected ViewController(IntPtr handle) : base(handle)
         {
@@ -33,12 +34,14 @@ namespace ARNativePortal
                 return;
             }
 
-            aRSession.Delegate = arSessionHandler;
-            aRSession.DelegateQueue = arQueue;
-            arSessionHandler.DidChangeTrackingState += DidChangeTrackingState;
+            arSession.Delegate = arSessionHandler;
+            arSession.DelegateQueue = arQueue;
+            arSceneView.Delegate = arSceneHandler;
+
+            DefineObservers();
 
             var options = configurationTuple.options;
-            aRSession.Run(configuration, options);
+            arSession.Run(configuration, options);
 
             //PauseSession();
 #if DEBUG
@@ -60,7 +63,25 @@ namespace ARNativePortal
             Debug.WriteLine("Status Frame {0} View Frame {1}", statusLabel.Frame, View.Frame);
         }
 
-        private void Deinit() => arSessionHandler.DidChangeTrackingState -= DidChangeTrackingState;
+        private void DidChangeSessionInterruptionState(bool interrupted) 
+        {
+            if (!interrupted) {
+                var options = ARSessionRunOptions.ResetTracking | ARSessionRunOptions.RemoveExistingAnchors;
+                RestartSession(options); // Reset session...
+            }
+        }
+
+        private void DefineObservers() {
+            var handler = arSessionHandler as ARSessionHandler;
+            handler.DidChangeTrackingState += DidChangeTrackingState;
+            handler.DidChangeSessionInterruptionState += DidChangeSessionInterruptionState;
+        }
+
+        private void Deinit() {
+            var handler = arSessionHandler as ARSessionHandler;
+            handler.DidChangeTrackingState -= DidChangeTrackingState;
+            handler.DidChangeSessionInterruptionState -= DidChangeSessionInterruptionState;
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -71,15 +92,20 @@ namespace ARNativePortal
 
         private void PauseSession()
         {
-            aRSession?.Pause();
+            arSession?.Pause();
         }
 
         private void RestartSession()
         {
-            var configuration = aRSession?.Configuration;
+            RestartSession(0);
+        }
+
+        private void RestartSession(ARSessionRunOptions options)
+        {
+            var configuration = arSession?.Configuration;
             if (configuration != null)
             {
-                aRSession.Run(configuration, 0); // Try to restore everything.... What to do if you moved away...
+                arSession.Run(configuration, options); // Try to restore everything.... What to do if you moved away...
             }
         }
 
