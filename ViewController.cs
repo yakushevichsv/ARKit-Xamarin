@@ -147,7 +147,7 @@ namespace ARNativePortal
             {
                 WorldAlignment = ARWorldAlignment.Gravity,
                 LightEstimationEnabled = true,
-                PlaneDetection = ARPlaneDetection.Horizontal | ARPlaneDetection.Vertical
+                PlaneDetection = ARPlaneDetection.Horizontal //| ARPlaneDetection.Vertical
             };
             return (configuration, options);
         }
