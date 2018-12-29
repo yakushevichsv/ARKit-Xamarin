@@ -4,7 +4,6 @@ using System.Diagnostics;
 using ARKit;
 using ARNativePortal.Helpers;
 using SceneKit;
-using UUID = Foundation.NSUuid;
 
 namespace ARNativePortal.Models
 {
@@ -20,22 +19,68 @@ namespace ARNativePortal.Models
             return false;
         }
 
-        private static void AdjustPlaneNode(SCNNode node, ARPlaneAnchor planeAnchor)
+        private bool FireOnce = false;
+
+        private void AdjustPlaneNode(SCNNode node, ARPlaneAnchor planeAnchor)
         {
             var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
             if (planeNode != null)
             {
 
+                var width = planeAnchor.Extent.X;
+                var length = planeAnchor.Extent.Z;
+                var count = planeNode.ParticleSystems?.Length ?? 0;
+
                 if (planeNode.Geometry is SCNPlane planeGeometry)
                 {
-                    planeGeometry.Width = planeAnchor.Extent.X;
-                    planeGeometry.Height = planeAnchor.Extent.Z;
+                    planeGeometry.Width = width;
+                    planeGeometry.Height = length;
                 }
 
-                var angle = planeAnchor.Alignment == ARPlaneAnchorAlignment.Horizontal ? (float)(Math.PI * 0.5) : 0.0f;
+                var angle = planeAnchor.Alignment == ARPlaneAnchorAlignment.Horizontal ? (float)(-Math.PI * 0.5) : 0.0f;
                 planeNode.Transform = planeAnchor.Transform.ToSCNMatrix4();
+                planeNode.Position = planeAnchor.Center.ToSCNVector3();
                 planeNode.LocalRotate(SCNQuaternion.FromAxisAngle(SCNVector3.UnitX, angle));
+
+                SCNParticleSystem fireSystem;
+                if (FireOnce && count == 0)
+                    return;
+
+                if (count == 0)
+                {
+                    fireSystem = CreateFire();
+                    planeNode.AddParticleSystem(fireSystem);
+                    planeNode.Geometry.FirstMaterial.Diffuse.ContentColor = fireSystem.ParticleColor.ColorWithAlpha(0.4f);
+                    FireOnce = true;
+                }
+                else 
+                {
+                    fireSystem = planeNode.ParticleSystems[count - 1];
+                }
+
+
+                var shape = fireSystem.EmitterShape;
+
+                if (shape is SCNBox box)
+                {
+                    box.Length = length;
+                    box.Width = width;
+                    box.Height = 0.04f; //cm... 4* 5 == 20 cm...
+                    //fireSystem.EmitterShape = box;
+                }
+                else if (shape is SCNPlane plane)
+                {
+                    plane.Width = width;
+                    plane.Height = length;
+                    //fireSystem.EmitterShape = plane;
+                }
             }
+        }
+
+        private static SCNParticleSystem CreateFire()
+        {
+            var particleSystem = SCNParticleSystem.Create("Fire2.scnp", null);
+            return particleSystem;
         }
 
         public override void DidAddNode(ISCNSceneRenderer renderer, SCNNode node, ARAnchor anchor)
@@ -75,7 +120,15 @@ namespace ARNativePortal.Models
 
         public override void DidRemoveNode(ISCNSceneRenderer renderer, SCNNode node, ARAnchor anchor)
         {
-            BeginInvokeOnMainThread(node.RemoveFromParentNode);
+            BeginInvokeOnMainThread(() =>
+            {
+                node.RemoveFromParentNode();
+                if (FireOnce)
+                {
+                    var planeNode = renderer.Scene.RootNode.FindChildNode(Constants.PlaneNodeName, true);
+                    FireOnce = planeNode != null;
+                }
+               });
         }
     }
 }

@@ -116,5 +116,10 @@
     <Compile Include="Extensions\SCNOpenTKTransformations.cs" />
     <Compile Include="Helpers\Constants.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <BundleResource Include="Resources\Fire.scnp" />
+    <BundleResource Include="Resources\spark.png" />
+    <BundleResource Include="Resources\Fire2.scnp" />
+  </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.CSharp.targets" />
 </Project>

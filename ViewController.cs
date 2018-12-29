@@ -45,7 +45,7 @@ namespace ARNativePortal
 
             //PauseSession();
 #if DEBUG
-            arSceneView.DebugOptions = SceneKit.SCNDebugOptions.ShowBoundingBoxes;
+            arSceneView.DebugOptions = SceneKit.SCNDebugOptions.ShowPhysicsShapes;
             arSceneView.ShowsStatistics = true;
 #endif
 
