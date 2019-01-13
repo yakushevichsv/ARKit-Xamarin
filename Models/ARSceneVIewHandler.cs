@@ -1,14 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Runtime.InteropServices;
 using ARKit;
 using ARNativePortal.Helpers;
+using AudioToolbox;
+using CoreMedia;
 using SceneKit;
 
 namespace ARNativePortal.Models
 {
     public class ARSceneViewHandler: ARSCNViewDelegate
     {
+        public delegate void DidGetAudioSampleDelegate(long value);
+        public event DidGetAudioSampleDelegate DidGetAudioSample;
+
+        public delegate void DidAddCustomNodeDelegate(SCNNode node, ARAnchor anchor);
+        public event DidAddCustomNodeDelegate DidAddCustomNode;
+
+        public delegate void DidUpdateCustomNodeDelegate(SCNNode node, ARAnchor anchor);
+        public event DidUpdateCustomNodeDelegate DidUpdateCustomNode;
+
+        public delegate void DidRemoveCustomNodeDelegate(SCNNode node, ARAnchor anchor);
+        public event DidRemoveCustomNodeDelegate DidRemoveCustomNode;
+
         private bool TryToAdjustNode(SCNNode node, ARAnchor anchor)
         {
             if (anchor is ARPlaneAnchor planeAnchor)
@@ -19,14 +35,11 @@ namespace ARNativePortal.Models
             return false;
         }
 
-        private bool FireOnce = false;
-
         private void AdjustPlaneNode(SCNNode node, ARPlaneAnchor planeAnchor)
         {
             var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
             if (planeNode != null)
             {
-
                 var width = planeAnchor.Extent.X;
                 var length = planeAnchor.Extent.Z;
                 var count = planeNode.ParticleSystems?.Length ?? 0;
@@ -42,38 +55,47 @@ namespace ARNativePortal.Models
                 planeNode.Position = planeAnchor.Center.ToSCNVector3();
                 planeNode.LocalRotate(SCNQuaternion.FromAxisAngle(SCNVector3.UnitX, angle));
 
-                SCNParticleSystem fireSystem;
-                if (FireOnce && count == 0)
-                    return;
 
                 if (count == 0)
-                {
-                    fireSystem = CreateFire();
-                    planeNode.AddParticleSystem(fireSystem);
-                    planeNode.Geometry.FirstMaterial.Diffuse.ContentColor = fireSystem.ParticleColor.ColorWithAlpha(0.4f);
-                    FireOnce = true;
-                }
-                else 
-                {
-                    fireSystem = planeNode.ParticleSystems[count - 1];
-                }
+                    return;
+                var fireSystem = planeNode.ParticleSystems[count - 1];
 
 
                 var shape = fireSystem.EmitterShape;
-
                 if (shape is SCNBox box)
                 {
                     box.Length = length;
                     box.Width = width;
                     box.Height = 0.04f; //cm... 4* 5 == 20 cm...
-                    //fireSystem.EmitterShape = box;
+                    //fireSystem.Reset();
                 }
                 else if (shape is SCNPlane plane)
                 {
                     plane.Width = width;
                     plane.Height = length;
-                    //fireSystem.EmitterShape = plane;
+                    //fireSystem.Reset();
                 }
+            }
+        }
+
+        public void ActivateFire(SCNNode node)
+        {
+            RemoveParticles(node);
+            var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
+            if (planeNode != null)
+            {
+                var fireSystem = CreateFire();
+                planeNode.AddParticleSystem(fireSystem);
+                planeNode.Geometry.FirstMaterial.Diffuse.ContentColor = fireSystem.ParticleColor.ColorWithAlpha(0.4f);
+            }
+        }
+
+        public void RemoveParticles(SCNNode node)
+        {
+            var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
+            if (planeNode != null)
+            {
+                planeNode.RemoveAllParticleSystems();
             }
         }
 
@@ -87,6 +109,7 @@ namespace ARNativePortal.Models
         {
             if (anchor is ARPlaneAnchor planeAnchor)
             {
+                node.Name = anchor.Identifier.ToString();
                 Debug.WriteLine("!!! GetNode with plane anchor: {0}", planeAnchor);
 
                 var plane = new SCNPlane();
@@ -106,29 +129,96 @@ namespace ARNativePortal.Models
                 {
                     node.AddChildNode(retNode);
                     TryToAdjustNode(node, anchor);
+                    DidAddCustomNode?.Invoke(node, anchor);
                 });
             }
         }
 
         public override void DidUpdateNode(ISCNSceneRenderer renderer, SCNNode node, ARAnchor anchor)
         {
+            node.Name = anchor.Identifier.ToString();
+
             BeginInvokeOnMainThread(() =>
             {
                 TryToAdjustNode(node, anchor);
+                DidUpdateCustomNode?.Invoke(node, anchor);
             });
         }
 
         public override void DidRemoveNode(ISCNSceneRenderer renderer, SCNNode node, ARAnchor anchor)
         {
-            BeginInvokeOnMainThread(() =>
+            BeginInvokeOnMainThread(() => 
             {
                 node.RemoveFromParentNode();
-                if (FireOnce)
-                {
-                    var planeNode = renderer.Scene.RootNode.FindChildNode(Constants.PlaneNodeName, true);
-                    FireOnce = planeNode != null;
-                }
-               });
+                DidRemoveCustomNode?.Invoke(node, anchor);
+            });
         }
+
+        public override void DidOutputAudioSampleBuffer(ARSession session, CMSampleBuffer audioSampleBuffer)
+        {
+            var desc = audioSampleBuffer.GetAudioFormatDescription();
+            Debug.WriteLine("Description " + desc);
+            var streamDesc = desc.AudioStreamBasicDescription;
+            /*var buffers = new AudioBuffers(1);
+            var buffer = new AudioBuffer();
+            buffer.NumberChannels = 1;
+            buffer.DataByteSize = 0;*/
+            float finalValueTemp = 0;
+            Debug.WriteLine("Number of Samples: " + audioSampleBuffer.NumSamples);
+            //Value 174 = no voice...
+            var error = audioSampleBuffer.CallForEachSample((activeBuffer, index) =>
+            {
+                var blockBuffer = activeBuffer.GetDataBuffer();
+                var count = blockBuffer.DataLength;
+                var bytes = new byte[count];
+                var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+                IntPtr pointer;
+                var forEachError = CMSampleBufferError.None;
+                try
+                {
+                    pointer = handle.AddrOfPinnedObject();
+
+                    var currentError = blockBuffer.CopyDataBytes(0, count, pointer);
+                    if (currentError == CMBlockBufferError.None)
+                    {
+                        long sum = 0;
+                        var delta = sizeof(short);
+                        var longCount = (long)count;
+                        var newCount = longCount/delta;
+                        for (var i = 0; i < longCount; i += delta)
+                        {
+                            var value = (long)BitConverter.ToInt16(bytes, i);
+                            sum += (value * value)/newCount;
+                        }
+                        finalValueTemp += (long)Math.Sqrt(sum)/(audioSampleBuffer.NumSamples);
+                    }
+                    forEachError = (CMSampleBufferError)currentError;
+                }
+                catch (Exception exp)
+                {
+                    Debug.WriteLine("Exception " + exp);
+                }
+                finally
+                {
+                    if (handle.IsAllocated)
+                        handle.Free();
+                }
+                return forEachError;
+            });
+            //var dataBuffer = audioSampleBuffer.GetDataBuffer();
+            long finalValue = (long)finalValueTemp;
+            Debug.WriteLine("Value " + finalValue);
+            if (finalValue != 0)
+            {
+                DidGetAudioSample?.Invoke(finalValue);
+            }
+            //AudioBuffer(mNumberChannels: 1, mDataByteSize: 0, mData: nil))
+
+
+            //buffers[0] = buffer;
+            //streamDesc?.SampleRate
+            //https://stackoverflow.com/questions/33030425/capturing-volume-levels-with-avcaptureaudiodataoutputsamplebufferdelegate-in-swi
+        }
+
     }
 }

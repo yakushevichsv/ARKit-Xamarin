@@ -54,7 +54,6 @@ if (handler != null)
 
         public override void DidFail(ARSession session, NSError error)
         {
-            base.DidFail(session, error);
             var functionName = debugHelper.FunctionName();
             Debug.WriteLine(functionName + "Error " + error);
         }

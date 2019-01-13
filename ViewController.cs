@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using ARKit;
 using ARNativePortal.Models;
 using CoreFoundation;
+using Foundation;
+using SceneKit;
 using UIKit;
 
 namespace ARNativePortal
@@ -14,6 +17,7 @@ namespace ARNativePortal
         private readonly ARSessionDelegate arSessionHandler = new ARSessionHandler();
         private readonly ARSCNViewDelegate arSceneHandler = new ARSceneViewHandler();
         private readonly DispatchQueue arQueue = new DispatchQueue("AR.Session.Queue", false);
+        private readonly Dictionary<ARAnchor, PlaneState> planeState = new Dictionary<ARAnchor, PlaneState>(); 
 
         protected ViewController(IntPtr handle) : base(handle)
         {
@@ -45,10 +49,72 @@ namespace ARNativePortal
 
             //PauseSession();
 #if DEBUG
-            arSceneView.DebugOptions = SceneKit.SCNDebugOptions.ShowPhysicsShapes;
+            arSceneView.DebugOptions = SCNDebugOptions.ShowPhysicsShapes;
             arSceneView.ShowsStatistics = true;
 #endif
 
+        }
+
+        public override void TouchesBegan(NSSet touches, UIEvent evt)
+        {
+            var count = evt.AllTouches.Count;
+            if (count == 0)
+                return;
+
+            var enumerator = touches.GetEnumerator();
+            var current = enumerator.Current;
+            while (current == null && enumerator.MoveNext()){
+                current = enumerator.Current;
+            }
+            if (current is UITouch touch)
+            {
+                var position = touch.LocationInView(arSceneView);
+                var items = arSceneView.HitTest(position, ARHitTestResultType.ExistingPlaneUsingExtent) ?? new ARHitTestResult[0];
+                if (items.Length == 0)
+                    return;
+
+                var index = 0;
+
+                while (index < items.Length && items[index].Anchor == null)
+                {
+                    index++;
+                }
+
+                if (index == items.Length)
+                    return;
+
+                var hitTest = items[index];
+                var anchor = hitTest.Anchor;
+
+                if (!planeState.TryGetValue(anchor, out PlaneState value))
+                    value = PlaneState.None;
+
+                var values = (PlaneState[])Enum.GetValues(value.GetType());
+                index = Array.IndexOf(values, value);
+                if (index >= 0)
+                {
+                    index += 1;
+                    index = index % values.Length;
+                    value = (PlaneState)index;
+                }
+                planeState[anchor] = value;
+
+                var node = arSceneView.GetNode(anchor);
+                if (node == null)
+                {
+                    Debug.Assert(false);
+                    return;
+                }
+
+                switch (value) {
+                    case PlaneState.Fire:
+                        ((ARSceneViewHandler)arSceneHandler).ActivateFire(node);
+                        break;
+                    case PlaneState.None:
+                        ((ARSceneViewHandler)arSceneHandler).RemoveParticles(node);
+                        break;
+                }
+            }
         }
 
         private void DidChangeTrackingState(ARTrackingState state)
@@ -71,13 +137,69 @@ namespace ARNativePortal
             }
         }
 
-        private void DefineObservers() {
+        private void DefineObservers()
+        {
+            DefineSessionHandlerObservers();
+            DefineSceneViewHandlerObservers();
+        }
+
+        private void DefineSessionHandlerObservers() {
             var handler = arSessionHandler as ARSessionHandler;
             handler.DidChangeTrackingState += DidChangeTrackingState;
             handler.DidChangeSessionInterruptionState += DidChangeSessionInterruptionState;
         }
 
+        private void DefineSceneViewHandlerObservers()
+        {
+            var handler = arSceneHandler as ARSceneViewHandler;
+            handler.DidGetAudioSample += DidGetAudioSampleHandler;
+            handler.DidAddCustomNode += DidAddCustomNodeHandler;
+            handler.DidUpdateCustomNode += DidUpdateCustomNodeHandler;
+            handler.DidRemoveCustomNode += DidRemoveCustomNodeHandler;
+        }
+
+        private void DidAddCustomNodeHandler(SCNNode node, ARAnchor anchor)
+        {
+            var value = PlaneState.None;
+#if DEBUG
+            planeState.TryGetValue(anchor, out value);
+            Debug.Assert(value == PlaneState.None);
+#endif
+            planeState[anchor] = value;
+        }
+
+        private void DidUpdateCustomNodeHandler(SCNNode node, ARAnchor anchor)
+        {}
+
+        private void DidRemoveCustomNodeHandler(SCNNode node, ARAnchor anchor)
+        {
+            var value = PlaneState.None;
+            if (planeState.TryGetValue(anchor, out value))
+                planeState.Remove(anchor);
+        }
+
+        private void DidGetAudioSampleHandler(long value)
+        {
+            //TODO: here...
+            // define position an 
+        }
+
         private void Deinit() {
+            DeinitSessionHandler();
+            DeinitSceneViewHanlder();
+        }
+
+        private void DeinitSceneViewHanlder()
+        {
+            var handler = arSceneHandler as ARSceneViewHandler;
+            handler.DidGetAudioSample -= DidGetAudioSampleHandler;
+            handler.DidAddCustomNode -= DidAddCustomNodeHandler;
+            handler.DidUpdateCustomNode -= DidUpdateCustomNodeHandler;
+            handler.DidRemoveCustomNode -= DidRemoveCustomNodeHandler;
+        }
+
+        private void DeinitSessionHandler()
+        {
             var handler = arSessionHandler as ARSessionHandler;
             handler.DidChangeTrackingState -= DidChangeTrackingState;
             handler.DidChangeSessionInterruptionState -= DidChangeSessionInterruptionState;
@@ -147,6 +269,7 @@ namespace ARNativePortal
             {
                 WorldAlignment = ARWorldAlignment.Gravity,
                 LightEstimationEnabled = true,
+                ProvidesAudioData = true,
                 PlaneDetection = ARPlaneDetection.Horizontal //| ARPlaneDetection.Vertical
             };
             return (configuration, options);
