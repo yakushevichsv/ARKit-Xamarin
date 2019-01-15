@@ -4,7 +4,7 @@ namespace ARNativePortal
     public enum PlaneState
     {
         None,
-        Fire//,
-        //Audio
+        Fire,
+        Audio
     }
 }

@@ -18,7 +18,7 @@ namespace ARNativePortal
         private readonly ARSCNViewDelegate arSceneHandler = new ARSceneViewHandler();
         private readonly DispatchQueue arQueue = new DispatchQueue("AR.Session.Queue", false);
         private readonly Dictionary<ARAnchor, PlaneState> planeState = new Dictionary<ARAnchor, PlaneState>(); 
-
+        private long audioValue = 0;
         protected ViewController(IntPtr handle) : base(handle)
         {
             // Note: this .ctor should not contain any initialization logic.
@@ -108,10 +108,16 @@ namespace ARNativePortal
 
                 switch (value) {
                     case PlaneState.Fire:
+                        ((ARSceneViewHandler)arSceneHandler).RemoveEqualizer(node);
                         ((ARSceneViewHandler)arSceneHandler).ActivateFire(node);
+                        break;
+                    case PlaneState.Audio:
+                        ((ARSceneViewHandler)arSceneHandler).RemoveParticles(node);
+                        ((ARSceneViewHandler)arSceneHandler).ActivateEqualizer(node, audioValue);
                         break;
                     case PlaneState.None:
                         ((ARSceneViewHandler)arSceneHandler).RemoveParticles(node);
+                        ((ARSceneViewHandler)arSceneHandler).RemoveEqualizer(node);
                         break;
                 }
             }
@@ -182,6 +188,7 @@ namespace ARNativePortal
         {
             //TODO: here...
             // define position an 
+            audioValue = value;
         }
 
         private void Deinit() {

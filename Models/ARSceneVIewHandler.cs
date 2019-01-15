@@ -8,6 +8,7 @@ using ARNativePortal.Helpers;
 using AudioToolbox;
 using CoreMedia;
 using SceneKit;
+using UIKit;
 
 namespace ARNativePortal.Models
 {
@@ -99,6 +100,95 @@ namespace ARNativePortal.Models
             }
         }
 
+        public void RemoveEqualizer(SCNNode node)
+        {
+            var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
+            if (planeNode != null)
+            {
+                var equalizerNodes = planeNode.FindNodes((SCNNode curNode, out bool stop) =>
+                {
+                    stop = false;
+                    return curNode.Name == Constants.EqualizerNodeName;
+                });
+                foreach (var equilazerNode in equalizerNodes)
+                {
+                    equilazerNode.RemoveFromParentNode();
+                }
+            }
+        }
+
+        public void ActivateEqualizer(SCNNode node, long value)
+        {
+            var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
+            if (planeNode != null)
+            {
+                var count = 0;
+
+                var color = UIColor.White;
+
+                if (value > (long)VolumeRange.high)
+                {
+                    // Extra hight..
+                    color = UIColor.Red.ColorWithAlpha(1.0f);
+                    var scale = value/ (float)VolumeRange.high;
+                    count = (int)Math.Ceiling(scale * 15);
+
+                } else if (value > (long)VolumeRange.medium)
+                {
+
+                    // Extra hight..
+                    var range = (float)(VolumeRange.high - VolumeRange.medium);
+                    var scale = (value - (long)VolumeRange.medium) / range;
+                    var alpha = (float)((scale + 1.0) * 0.5f);
+
+                    count = (int)Math.Ceiling(scale * 10);
+                    color = new UIColor(alpha, 0, 0, 1.0f);//Red.ColorWithAlpha((nfloat)alpha);
+                } else if (value > (long)VolumeRange.low)
+                {
+                    // medium...
+                    var range = (float)(VolumeRange.medium - VolumeRange.low);
+                    var scale = (value - (long)VolumeRange.low) / range;
+                    var alpha = (float)((scale + 1.0) * 0.5f);
+
+                    color = new UIColor(alpha, alpha, 0, 1.0f);//UIColor.Yellow.ColorWithAlpha((nfloat)alpha);
+                    count = (int)Math.Ceiling(scale * 5);
+                }
+                else
+                {
+                    //kind of noise...
+                    var range = (float)VolumeRange.low;
+                    var scale = (value - 0) / range;
+                    var alpha = (float)((scale + 1.0) * 0.5f);
+                    color = color = new UIColor(alpha, alpha, alpha, 1.0f);//UIColor.Yellow.ColorWithAlpha((nfloat)alpha);
+                    //UIColor.White.ColorWithAlpha((nfloat)alpha);
+                    count = (int)Math.Ceiling(scale * 2);
+                }
+
+                var height = (nfloat)0.1f;
+                var yPosition = height * 0.5f;
+                for (var i = 0; i < count; i++)
+                {
+                    var planeGeometry = planeNode.Geometry as SCNPlane;
+                    var width = (nfloat)Math.Min(0.1f, planeGeometry.Width);
+                    var length = (nfloat)Math.Min(0.1f, planeGeometry.Height);
+                    var box = SCNBox.Create(width, height, length, 0);
+                    var material = new SCNMaterial();
+                    material.Diffuse.ContentColor = color;
+                    material.Emission.ContentColor = color;
+                    box.FirstMaterial = material;
+                    var boxNode = SCNNode.Create();
+
+                    boxNode.Name = Constants.EqualizerNodeName;
+                    boxNode.Geometry = box;
+                    boxNode.Position = new SCNVector3(0, 0, (float)yPosition);
+                    planeNode.AddChildNode(boxNode);
+                    yPosition += height;
+                }
+            }
+            else
+                Debug.Fail("No plane Node in " + node.DebugDescription);
+        }
+
         private static SCNParticleSystem CreateFire()
         {
             var particleSystem = SCNParticleSystem.Create("Fire2.scnp", null);
@@ -163,7 +253,7 @@ namespace ARNativePortal.Models
             var buffer = new AudioBuffer();
             buffer.NumberChannels = 1;
             buffer.DataByteSize = 0;*/
-            float finalValueTemp = 0;
+            double finalValueTemp = 0;
             Debug.WriteLine("Number of Samples: " + audioSampleBuffer.NumSamples);
             //Value 174 = no voice...
             var error = audioSampleBuffer.CallForEachSample((activeBuffer, index) =>
@@ -190,7 +280,7 @@ namespace ARNativePortal.Models
                             var value = (long)BitConverter.ToInt16(bytes, i);
                             sum += (value * value)/newCount;
                         }
-                        finalValueTemp += (long)Math.Sqrt(sum)/(audioSampleBuffer.NumSamples);
+                        finalValueTemp += Math.Sqrt(sum)/audioSampleBuffer.NumSamples;
                     }
                     forEachError = (CMSampleBufferError)currentError;
                 }
