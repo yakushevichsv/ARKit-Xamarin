@@ -94,7 +94,7 @@ namespace ARNativePortal.Models
         public void RemoveParticles(SCNNode node)
         {
             var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
-            if (planeNode != null && planeNode.ParticleSystems != null && planeNode.ParticleSystems.Length == 0)
+            if (planeNode != null && planeNode.ParticleSystems != null && planeNode.ParticleSystems.Length != 0)
             {
                 planeNode.RemoveAllParticleSystems();
             }
@@ -261,10 +261,16 @@ namespace ARNativePortal.Models
 
                 foreach (var boxNode in boxNodes)
                 {
-                    var box = boxNode.Geometry as SCNBox;
-                    var material = box.FirstMaterial;
-                    material.Diffuse.ContentColor = color;
-                    material.Emission.ContentColor = color;
+                    var colorName = "ColorName";
+                    boxNode.RemoveAction(colorName);
+                    var action = SCNAction.Run((SCNNode currentNode) =>
+                    {
+                        var box = currentNode.Geometry as SCNBox;
+                        var material = box.FirstMaterial;
+                        material.Diffuse.ContentColor = color;
+                        material.Emission.ContentColor = color;
+                    });
+                    boxNode.RunAction(action, colorName);
                 }
             }
             else
