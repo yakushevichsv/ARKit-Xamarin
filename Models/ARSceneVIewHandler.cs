@@ -94,7 +94,7 @@ namespace ARNativePortal.Models
         public void RemoveParticles(SCNNode node)
         {
             var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
-            if (planeNode != null)
+            if (planeNode != null && planeNode.ParticleSystems != null && planeNode.ParticleSystems.Length == 0)
             {
                 planeNode.RemoveAllParticleSystems();
             }
@@ -122,59 +122,126 @@ namespace ARNativePortal.Models
             var planeNode = node.FindChildNode(Constants.PlaneNodeName, false);
             if (planeNode != null)
             {
-                var count = 0;
-
-                var color = UIColor.White;
+                var pureCount = 0;
+                float scale = 0.0f;
+                nfloat r, b, g, alpha;
+                r = b = g = 0.0f;
+                alpha = 1.0f;
 
                 if (value > (long)VolumeRange.high)
                 {
                     // Extra hight..
-                    color = UIColor.Red.ColorWithAlpha(1.0f);
-                    var scale = value/ (float)VolumeRange.high;
-                    count = (int)Math.Ceiling(scale * 15);
-
+                    r = 1.0f;
+                    scale = value/ (float)VolumeRange.high;
+                    pureCount = 20;
                 } else if (value > (long)VolumeRange.medium)
                 {
 
                     // Extra hight..
                     var range = (float)(VolumeRange.high - VolumeRange.medium);
-                    var scale = (value - (long)VolumeRange.medium) / range;
-                    var alpha = (float)((scale + 1.0) * 0.5f);
-
-                    count = (int)Math.Ceiling(scale * 10);
-                    color = new UIColor(alpha, 0, 0, 1.0f);//Red.ColorWithAlpha((nfloat)alpha);
+                    scale = (value - (long)VolumeRange.medium) / range;
+                    r = (float)((scale + 1.0) * 0.5f);
+                    pureCount = 10;
                 } else if (value > (long)VolumeRange.low)
                 {
                     // medium...
                     var range = (float)(VolumeRange.medium - VolumeRange.low);
-                    var scale = (value - (long)VolumeRange.low) / range;
-                    var alpha = (float)((scale + 1.0) * 0.5f);
-
-                    color = new UIColor(alpha, alpha, 0, 1.0f);//UIColor.Yellow.ColorWithAlpha((nfloat)alpha);
-                    count = (int)Math.Ceiling(scale * 5);
+                    scale = (value - (long)VolumeRange.low) / range;
+                    r = (float)((scale + 1.0) * 0.5f);
+                    g = r;
+                    pureCount = 5;
                 }
                 else
                 {
                     //kind of noise...
                     var range = (float)VolumeRange.low;
-                    var scale = (value - 0) / range;
-                    var alpha = (float)((scale + 1.0) * 0.5f);
-                    color = color = new UIColor(alpha, alpha, alpha, 1.0f);//UIColor.Yellow.ColorWithAlpha((nfloat)alpha);
-                    //UIColor.White.ColorWithAlpha((nfloat)alpha);
-                    count = (int)Math.Ceiling(scale * 2);
+                    scale = (value - 0) / range;
+                    r = (float)((scale + 1.0) * 0.5f);
+                    g = b = r;
+                    pureCount = 2;
                 }
+
+                var count = (int)Math.Ceiling(scale * pureCount);
+                var color = new UIColor(r, g, b, alpha);
 
                 var height = (nfloat)0.1f;
                 var yPosition = height * 0.5f;
-                for (var i = 0; i < count; i++)
+
+                var boxNodes = planeNode.FindNodes((SCNNode childNode, out bool stop) =>
+                {
+                    var found = childNode.Name == Constants.EqualizerNodeName && (childNode.Geometry is SCNBox);
+                    stop = false;
+                    return found;
+                });
+
+                var totalHeight = count * height;
+
+                var mappedNodesTemp = boxNodes.Select((boxNode, arg2) => new Tuple<SCNNode, int>(boxNode, arg2) );
+
+                var mappedNodes = new List<Tuple<SCNNode, int>>(mappedNodesTemp);
+                var extraYHeight = (nfloat)0;
+                try
+                {
+                    var hasNodes = mappedNodes.Count != 0;
+                    var minPositionY = hasNodes ? mappedNodes.Min((arg) => arg.Item1.Position.Y) : yPosition;
+
+                    var removeIndexes = mappedNodes.Where((Tuple<SCNNode, int> arg) =>
+                    {
+                        var boxNode = arg.Item1;
+                        return (boxNode.Position.Y - minPositionY + (boxNode.Geometry as SCNBox).Height) > totalHeight;
+                    }).Select((arg1) => arg1.Item2).ToArray();
+
+                    var sortedRemoveIndexes = removeIndexes;
+                    Array.Sort<int>(sortedRemoveIndexes, (x, y) => y.CompareTo(x));
+
+                    foreach (var index in sortedRemoveIndexes)
+                    {
+                        var nodeToRemove = mappedNodes[index].Item1;
+                        mappedNodes.RemoveAt(index);
+                        var removeAction = SCNAction.RemoveFromParentNode();
+                        nodeToRemove.RunAction(removeAction);
+                    }
+
+                    if (hasNodes)
+                    {
+                        var lastNodeTuple = mappedNodes.LastOrDefault((arg) =>
+                        {
+                            var box = arg.Item1.Geometry as SCNBox;
+                            return arg.Item1.Position.Y - minPositionY + box.Height < totalHeight;
+                        });
+
+                        if (lastNodeTuple != null)
+                        {
+                            var lastNode = lastNodeTuple.Item1;
+                            var geometry = lastNode.Geometry as SCNBox;
+                            extraYHeight = geometry.Height * 0.5f;
+                            yPosition = lastNode.Position.Y + 2 * extraYHeight;
+                        }
+                    }
+                }
+                catch (Exception exp)
+                {
+                    Debug.WriteLine("Exception " + exp);
+                }
+                var newCount = (int)Math.Ceiling((totalHeight - yPosition + extraYHeight) / height);
+
+                /*int[] appendIndexes = mappedNodes.Where((Tuple<SCNNode, int> arg) =>
+                {
+                    var boxNode = arg.Item1;
+                    var geometry = boxNode.Geometry as SCNBox;
+                    return (boxNode.Position.Y + geometry.Height) <= totalHeight;
+                }).SelectMany((arg) =>
+                {
+                    return arg.Item2;
+                }); */
+
+                for (var i = 0; i < newCount; i++)
                 {
                     var planeGeometry = planeNode.Geometry as SCNPlane;
                     var width = (nfloat)Math.Min(0.1f, planeGeometry.Width);
                     var length = (nfloat)Math.Min(0.1f, planeGeometry.Height);
                     var box = SCNBox.Create(width, height, length, 0);
                     var material = new SCNMaterial();
-                    material.Diffuse.ContentColor = color;
-                    material.Emission.ContentColor = color;
                     box.FirstMaterial = material;
                     var boxNode = SCNNode.Create();
 
@@ -183,6 +250,21 @@ namespace ARNativePortal.Models
                     boxNode.Position = new SCNVector3(0, 0, (float)yPosition);
                     planeNode.AddChildNode(boxNode);
                     yPosition += height;
+                }
+
+                boxNodes = planeNode.FindNodes((SCNNode childNode, out bool stop) =>
+                {
+                    var found = childNode.Name == Constants.EqualizerNodeName && (childNode.Geometry is SCNBox);
+                    stop = false;
+                    return found;
+                });
+
+                foreach (var boxNode in boxNodes)
+                {
+                    var box = boxNode.Geometry as SCNBox;
+                    var material = box.FirstMaterial;
+                    material.Diffuse.ContentColor = color;
+                    material.Emission.ContentColor = color;
                 }
             }
             else

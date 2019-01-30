@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using ARKit;
 using ARNativePortal.Models;
 using CoreFoundation;
@@ -69,7 +70,7 @@ namespace ARNativePortal
             if (current is UITouch touch)
             {
                 var position = touch.LocationInView(arSceneView);
-                var items = arSceneView.HitTest(position, ARHitTestResultType.ExistingPlaneUsingExtent) ?? new ARHitTestResult[0];
+                var items = arSceneView.HitTest(position, ARHitTestResultType.ExistingPlaneUsingExtent | ARHitTestResultType.EstimatedHorizontalPlane) ?? new ARHitTestResult[0];
                 if (items.Length == 0)
                     return;
 
@@ -186,9 +187,26 @@ namespace ARNativePortal
 
         private void DidGetAudioSampleHandler(long value)
         {
-            //TODO: here...
-            // define position an 
             audioValue = value;
+            var currentFrame = arSession.CurrentFrame;
+            if (currentFrame == null)
+                return;
+
+            foreach (var anchor in currentFrame.Anchors)
+            {
+                var node = arSceneView.GetNode(anchor);
+                if (node == null)
+                {
+                    Debug.Assert(false);
+                    return;
+                }
+
+                if (planeState.TryGetValue(anchor, out PlaneState valueState) && valueState == PlaneState.Audio) {
+                    var handler = (ARSceneViewHandler)arSceneHandler;
+                    handler.RemoveParticles(node);
+                    handler.ActivateEqualizer(node, audioValue);
+                }
+            }
         }
 
         private void Deinit() {
